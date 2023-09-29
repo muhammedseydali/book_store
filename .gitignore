@@ -1,0 +1,57 @@
+# Python/Django specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+
+# Virtual environment
+venv/
+env/
+pip-selfcheck.json
+
+# Django media files (if not using a separate media server)
+media/
+
+# Ignore database configuration
+db.sqlite3
+
+# Ignore sensitive information
+*.secret_key
+
+# Ignore user-specific IDE or text editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore project-specific settings
+local_settings.py
+
+# Ignore migration files
+**/migrations/
+
+# Ignore Python bytecode files
+*.pyc
+
+# Ignore generated documentation
+/_build/
+
+# Ignore Django generated files
+/static/
+__init__.py
+
+# Ignore database cache
+__pycache__/
+
+# Ignore .env file (contains environment variables)
+.env
+
+# Ignore any compiled files or binaries
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.log
