@@ -20,7 +20,12 @@ from .pagination import CustomPagination
 from .models import Book, Track_book_status
 from .serializers import BookSerializer, TrackBookStatusSerializer
 
+from rest_framework.parsers import FormParser, MultiPartParser
+from drf_yasg.utils import swagger_auto_schema
+
+
 class CreateBookAPIView(ListCreateAPIView):
+
     """
     API view for creating and listing books.
 
@@ -34,7 +39,8 @@ class CreateBookAPIView(ListCreateAPIView):
     HTTP Methods:
         - GET: Retrieve a list of books with filtering and pagination.
         - POST: Create a new book entry """
-    
+
+    parser_classes = [MultiPartParser, FormParser]
     serializer_class = BookSerializer
     queryset = Book.objects.all()
     permission_classes = [IsAuthenticated]
@@ -42,10 +48,15 @@ class CreateBookAPIView(ListCreateAPIView):
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = BookFilter
 
+
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
 
-
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()   
+    
 class RetrieveUpdateDestroyBookAPIView(RetrieveUpdateDestroyAPIView):
     """
     API view for retrieving, updating, and deleting individual books.
@@ -60,6 +71,11 @@ class RetrieveUpdateDestroyBookAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = BookSerializer
     queryset = Book.objects.all()
 
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()  
+
 
 class Show_books(generics.ListAPIView):
     """
@@ -72,6 +88,11 @@ class Show_books(generics.ListAPIView):
     # permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
     filterset_class = BookFilter 
+
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()  
 
 
 
@@ -86,7 +107,7 @@ class BorrowAPIView(APIView):
         """
         Update the status of a borrowed book to mark it as returned and send an email confirmation.
 
-        This view handles the PUT request to update the status of a borrowed book record.
+        This view handles the POST request to update the status of a borrowed book record.
         It checks if the book has already been returned and, if not, marks it as returned and
         sends an email confirmation to the user.
         """
@@ -100,7 +121,7 @@ class BorrowAPIView(APIView):
                 book = Book.objects.get(title=book_name)
                 
             except ObjectDoesNotExist:
-                return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'messsage': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             existing_borrow = Track_book_status.objects.filter(
                 user=request.user,
@@ -137,17 +158,21 @@ class BorrowAPIView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
-                return Response({'error': 'The book is out of stock.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'The book is out of stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()  
 
 class ReturnAPIView(APIView):
 
     """
     Update the status of a borrowed book to mark it as returned and send an email confirmation.
 
-    This view handles the PUT request to update the status of a borrowed book record.
+    This view handles the POST request to update the status of a borrowed book record.
     It checks if the book has already been returned and, if not, marks it as returned and
     sends an email confirmation to the user.
     """
@@ -163,7 +188,7 @@ class ReturnAPIView(APIView):
             try:
                 book = Book.objects.get(title=book_name)
             except ObjectDoesNotExist:
-                return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
             borrow_record = Track_book_status.objects.filter(
                 user=request.user,
@@ -172,7 +197,7 @@ class ReturnAPIView(APIView):
             ).first()
 
             if not borrow_record:
-                return Response({'error': 'You have not borrowed this book.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'You have not borrowed this book.'}, status=status.HTTP_400_BAD_REQUEST)
 
             borrow_record.is_returned = True
             borrow_record.returned_date = timezone.now()
@@ -200,9 +225,17 @@ class ReturnAPIView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
+
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()      
+
 class Borrowed_user(APIView):
+    """
+    A view for listing boorowed users.
+
+    This view returns a paginated list of books and it's users supports filtering based on various criteria."""
 
     permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
@@ -216,3 +249,8 @@ class Borrowed_user(APIView):
         serializer = TrackBookStatusSerializer(track_book_status, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def get_parsers(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return []
+        return super().get_parsers()  
