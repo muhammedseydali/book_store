@@ -21,6 +21,7 @@ class BookSerializer(serializers.ModelSerializer):
         return f"{obj.creator.username}"
 
 
+
 class TrackBookStatusSerializer(serializers.ModelSerializer):
 
     book_name = serializers.CharField(write_only=True) 
@@ -28,12 +29,13 @@ class TrackBookStatusSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Track_book_status
-        fields = '__all__'
+        fields = ['user', 'book_name', 'borrowed_date', 'due_date', 'returned_date']
         
     def validate_book_name(self, value):
+        print('inside validate book name')
         try:
-            # Try to find the book by name
             book = Book.objects.get(title=value)
+            print(book, 'book name in serializer')
         except Book.DoesNotExist:
             raise serializers.ValidationError("Book not found.")
         return book
@@ -41,7 +43,7 @@ class TrackBookStatusSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Use the validated book instance
         book = validated_data['book_name']
-        # book = Book.objects.get(title=book)
+        book = Book.objects.get(title=book)
         track_status = Track_book_status.objects.create(
             user=validated_data['user'],
             book=book,

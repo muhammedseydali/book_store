@@ -62,11 +62,17 @@ class RetrieveUpdateDestroyBookAPIView(RetrieveUpdateDestroyAPIView):
 
 
 class Show_books(generics.ListAPIView):
+    """
+    A view for listing books.
+
+    This view returns a paginated list of books and supports filtering based on various criteria."""
+
     serializer_class = BookSerializer
     queryset = Book.objects.all()
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     pagination_class = CustomPagination
     filterset_class = BookFilter 
+
 
 
 class BorrowAPIView(APIView):
@@ -96,7 +102,6 @@ class BorrowAPIView(APIView):
             except ObjectDoesNotExist:
                 return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Check if the user has already borrowed this book
             existing_borrow = Track_book_status.objects.filter(
                 user=request.user,
                 book=book,
@@ -104,12 +109,12 @@ class BorrowAPIView(APIView):
             ).first()
 
             if existing_borrow:
-                return Response({'error': 'You have already borrowed this book.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'You have already borrowed this book.'}, status=status.HTTP_400_BAD_REQUEST)
 
             if book.total_available > 0:
-                # Create a new borrow entry
+
                 track_status = serializer.save(user=request.user , book=book.id)
-                # Update the book's availability
+
                 book.total_available -= 1
 
                 book.save()
@@ -119,49 +124,84 @@ class BorrowAPIView(APIView):
                 from_email = settings.EMAIL_HOST_USER
                 recipient_list = [request.user.email]
 
-                send_mail(subject, message, from_email, recipient_list, fail_silently=False)
-                print("Email sent")
+                # send_mail(subject, message, from_email, recipient_list, fail_silently=False)
 
-                return Response({'message': 'Book borrowed successfully.'}, status=status.HTTP_201_CREATED)
+                response_data = {
+                    'message': 'Book borrowed successfully.',
+                    'borrowed_book': {
+                        'title': track_status.book.title,
+                        'author': track_status.book.author,
+                        'borrowed_date': track_status.borrowed_date,
+                        'return_date': track_status.returned_date,
+                    }
+                }
+                return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 return Response({'error': 'The book is out of stock.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class ReturnApiView(APIView):
 
-    def put(self, request, pk):
-        """
-        Update the status of a borrowed book to mark it as returned and send an email confirmation.
+class ReturnAPIView(APIView):
 
-        This view handles the PUT request to update the status of a borrowed book record.
-        It checks if the book has already been returned and, if not, marks it as returned and
-        sends an email confirmation to the user.
-        """
+    """
+    Update the status of a borrowed book to mark it as returned and send an email confirmation.
 
-        try:
-            track_status = Track_book_status.objects.get(pk=pk, user=request.user)
-        except ObjectDoesNotExist:
-            return Response({'error': 'Book borrow record not found.'}, status=status.HTTP_404_NOT_FOUND)
+    This view handles the PUT request to update the status of a borrowed book record.
+    It checks if the book has already been returned and, if not, marks it as returned and
+    sends an email confirmation to the user.
+    """
 
-        if track_status.is_returned:
-            return Response({'error': 'The book has already been returned.'}, status=status.HTTP_400_BAD_REQUEST)
+    permission_classes = [IsAuthenticated]
 
-        track_status.is_returned = True
-        track_status.returned_date = timezone.now()
-        track_status.save()
+    def post(self, request):
+        serializer = TrackBookStatusSerializer(data=request.data)
 
-        # Send an email to the user when the book is returned
-        subject = 'Book Return Confirmation'
-        message = f'The book "{track_status.book.title}" has been successfully returned on {track_status.returned_date}.'
-        from_email = settings.EMAIL_HOST_USER
-        recipient_list = [request.user.email]
+        if serializer.is_valid():
+            book_name = serializer.validated_data.get('book_name')
 
-        send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+            try:
+                book = Book.objects.get(title=book_name)
+            except ObjectDoesNotExist:
+                return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({'message': 'Book returned successfully.'}, status=status.HTTP_200_OK)
+            borrow_record = Track_book_status.objects.filter(
+                user=request.user,
+                book=book,
+                is_returned=False
+            ).first()
 
+            if not borrow_record:
+                return Response({'error': 'You have not borrowed this book.'}, status=status.HTTP_400_BAD_REQUEST)
 
+            borrow_record.is_returned = True
+            borrow_record.returned_date = timezone.now()
+            borrow_record.save()
+
+            book.total_available += 1
+            book.save()
+
+            # Send an email confirmation to the user
+            subject = 'Book Return Confirmation'
+            message = f'The book "{book.title}" has been successfully returned on {borrow_record.returned_date}.'
+            from_email = settings.EMAIL_HOST_USER
+            recipient_list = [request.user.email]
+
+            # send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+
+            response_data = {
+                'message': 'Book returned successfully.',
+                'returned_book': {
+                    'title': book.title,
+                    'author': book.author,
+                    'returned_date': borrow_record.returned_date,
+                }
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
 class Borrowed_user(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -170,10 +210,9 @@ class Borrowed_user(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Get the user's book borrow/return status
+
         track_book_status = Track_book_status.objects.filter(user=request.user)
 
-        # Serialize the data
         serializer = TrackBookStatusSerializer(track_book_status, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
