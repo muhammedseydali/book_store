@@ -1,4 +1,5 @@
 
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from rest_framework import serializers
 
 from .models import Book, Track_book_status
@@ -39,6 +40,16 @@ class TrackBookStatusSerializer(serializers.ModelSerializer):
         except Book.DoesNotExist:
             raise serializers.ValidationError("Book not found.")
         return book
+    # def validate_book_name(self, value):
+    #     try:
+    #         book = Book.objects.get(title=value)
+    #     except Book.DoesNotExist:
+    #         raise serializers.ValidationError("Book not found.")
+    #     except MultipleObjectsReturned:
+    #         matching_books = Book.objects.filter(title=value)
+    #         book_titles = [book.title for book in matching_books]
+    #         raise serializers.ValidationError(f"Multiple books found with title: {', '.join(book_titles)}")
+    #     return book
 
     def create(self, validated_data):
         # Use the validated book instance
