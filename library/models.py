@@ -31,4 +31,4 @@ class Track_book_status(models.Model):
         verbose_name_plural = 'Track_book'
 
     def __str__(self):
-        return str(self.title) + " [" + str(self.author) + ']'
+        return str(self.book.title)
